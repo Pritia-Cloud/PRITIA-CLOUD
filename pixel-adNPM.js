@@ -1,4 +1,4 @@
-/** uc3m/IMDEA Networks adFnpm.@author Miguel A Bermejo Agueda <mibermej@pa.uc3m.es> **/
+/** uc3m/IBiDat adNPM.@author Miguel A Bermejo Agueda <mibermej@pa.uc3m.es> **/
 
 const pixelName = "uc3m_adFnpm.js";
 const pixelVersion = "pixel_adFnpmV6";
