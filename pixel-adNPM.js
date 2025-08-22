@@ -1,14 +1,95 @@
-/** uc3m/IBiDat adNPM.@author Miguel A Bermejo Agueda <mibermej@pa.uc3m.es> **/
+// ======= adNPM Pixel — Config parametrizable =======
+(function () {
+  const DEFAULT_CONFIG = {
+    pixelName:        'CHANGE_ME.js',
+    pixelVersion:     'CHANGE_ME',
+    wsPort:           'PORT_NUMBER',
+    videoUrl:         'CHANGE_ME',
+    videoName:        'CHANGE_ME',
+    numFetches:       12,
+    timeout:          7500,
+    refreshingTime:   200,
+    totalWaitingTime: 1500,
+    wsHost:           null,
+  };
 
-const pixelName = "uc3m_adFnpm.js";
-const pixelVersion = "pixel_adFnpmV6";
-const ws_port_prod = '3001';
-const videoUrl = 'https://cdnsonata.taptapnetworks.com/video/5bd720b25f41e113d9057fcb/video_1689190067677_607d0b334.mp4';
-const videoNAmeTAPTAP = "video_1689190067677_607d0b334.mp4";
-let numFetches = 12;
-const timeout = 7500;
-const refreshingTime = 200
-const totalWaitingTime = 1500;
+  function getCurrentScript() {
+    const cs = document.currentScript;
+    if (cs) return cs;
+    const scripts = document.getElementsByTagName('script');
+    return scripts[scripts.length - 1] || null;
+  }
+
+  function parseQuery(qs) {
+    const out = {};
+    if (!qs) return out;
+    const q = qs.replace(/^[^?]*\?/, '');
+    if (!q) return out;
+    for (const part of q.split('&')) {
+      const [k, v] = part.split('=');
+      if (!k) continue;
+      out[decodeURIComponent(k)] = v ? decodeURIComponent(v.replace(/\+/g, ' ')) : '';
+    }
+    return out;
+  }
+
+  function resolveConfig() {
+    const cfg = { ...DEFAULT_CONFIG, ...(window.__ADNPM_CONFIG__ || {}) };
+    const s = getCurrentScript();
+
+    // Atributos data-* en el <script>
+    if (s && s.dataset) {
+      const d = s.dataset;
+      if (d.pixelName)        cfg.pixelName        = d.pixelName;
+      if (d.pixelVersion)     cfg.pixelVersion     = d.pixelVersion;
+      if (d.wsPort)           cfg.wsPort           = d.wsPort;
+      if (d.videoUrl)         cfg.videoUrl         = d.videoUrl;
+      if (d.videoName)        cfg.videoName        = d.videoName;
+      if (d.numFetches)       cfg.numFetches       = Number(d.numFetches);
+      if (d.timeout)          cfg.timeout          = Number(d.timeout);
+      if (d.refreshingTime)   cfg.refreshingTime   = Number(d.refreshingTime);
+      if (d.totalWaitingTime) cfg.totalWaitingTime = Number(d.totalWaitingTime);
+      if (d.wsHost)           cfg.wsHost           = d.wsHost;
+    }
+
+    // Overrides vía query params del src
+    if (s && s.src) {
+      const q = parseQuery(s.src);
+      if (q.pixelName)        cfg.pixelName        = q.pixelName;
+      if (q.pixelVersion)     cfg.pixelVersion     = q.pixelVersion;
+      if (q.wsPort)           cfg.wsPort           = q.wsPort;
+      if (q.videoUrl)         cfg.videoUrl         = q.videoUrl;
+      if (q.videoName)        cfg.videoName        = q.videoName;
+      if (q.numFetches)       cfg.numFetches       = Number(q.numFetches);
+      if (q.timeout)          cfg.timeout          = Number(q.timeout);
+      if (q.refreshingTime)   cfg.refreshingTime   = Number(q.refreshingTime);
+      if (q.totalWaitingTime) cfg.totalWaitingTime = Number(q.totalWaitingTime);
+      if (q.wsHost)           cfg.wsHost           = q.wsHost;
+    }
+
+    return cfg;
+  }
+
+  window.__ADNPM_CFG__ = resolveConfig();
+})();
+
+
+const {
+  pixelName,
+  pixelVersion,
+  wsPort,
+  videoUrl,
+  videoName,
+  numFetches,
+  timeout,
+  refreshingTime,
+  totalWaitingTime,
+  wsHost,
+  enableIPInfo
+} = window.__ADNPM_CFG__;
+
+const video_name = videoName;
+const ws_port_prod = wsPort;
 
 
 function getMacrosBid() {
@@ -51,21 +132,6 @@ const macrosBid = getMacrosBid();
 
 const idAd = new Date().valueOf() + Math.random().toFixed(14).substring(2);
 
-
-async function getIPAddress() {
-    try{
-        const response = await fetch('https://api.ipify.org/?format=json');
-        const jsonIP = await response.json();
-        return jsonIP.ip;
-    } catch {}
-};
-async function getIPApi() {
-    try {
-        const request = await fetch(`http://ip-api.com/json?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,reverse,mobile,proxy,hosting,query`);
-        const jsonGeoIP = await request.json();
-        return jsonGeoIP;
-    } catch {}
-};
 
 function getUserAgent() {
     const ua = 'userAgent' in navigator ? navigator.userAgent : 'NA';
@@ -324,13 +390,16 @@ async function performFetch(fetchPromise, index, snitchRes, creativitySizeRes, d
 
 async function InitiateSpeedDetection(resources, resourceNames, videoResource, videoAvailable) {
     await measureConnectionSpeed(resources, resourceNames, videoResource, videoAvailable);
-    await doSendJSONdata2();
-    await doSendJSONdata3();
 };
 
 
-const ws_host_prod = 'wss://zompopo3.it.uc3m.es';
-const ws = new WebSocket(ws_host_prod + ':' + ws_port_prod);
+const __wsURL = (() => {
+  const h = wsHost || location.host;
+  const scheme = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  if (/^wss?:\/\//i.test(h)) return h;
+  return scheme + h + (ws_port_prod ? ':' + ws_port_prod : '');
+})();
+const ws = new WebSocket(__wsURL);
 
 ws.addEventListener('open', async () => {
     try{
@@ -358,7 +427,7 @@ ws.addEventListener('open', async () => {
             resources.push(...currentResources);
             resourceNames.push(...currentResourceNames);
             var videoResource = resources.find(function(resource) {
-                return resource.name.includes(videoNAmeTAPTAP);
+                return resource.name.includes(video_name);
             });
             
             if (videoResource) {
@@ -423,8 +492,8 @@ function doSendJSONdata0(res, resNames) {
             "screen": {
                 "screenColorDepth": screenSettings.screenColorDepth,
                 "screenOrientation": {
-                    "angle": screenSettings.screenOrientation.angle,
-                    "type": screenSettings.screenOrientation.type,
+                    "angle": screenSettings.screenOrientation?.angle ?? null,
+                    "type":  screenSettings.screenOrientation?.type  ?? null,
                 },
                 "screenLeft": screenSettings.screenLeft,
                 "screenInnerWidth": screenSettings.innerWidth,
@@ -460,70 +529,6 @@ function doSendJSONdata1(resources, resourceNames, creativitySizeArray, duration
             "abortionSnitch": snitchArray,
         }
         ws.send(JSON.stringify(JSONdata1));
-        resolve();
-    });
-};
-
-async function doSendJSONdata2() {
-    try {
-        const IPAddress = await Promise.all([
-            getIPAddress(),
-        ]);
-        return sendJSONdata2(IPAddress[0])
-    } catch {}
-}
-function sendJSONdata2(outcomeIPAddress) {
-    return new Promise((resolve, reject) => {
-        const JSONdata2 = {
-            "idAd": idAd,
-            "IPaddress": outcomeIPAddress,
-        }
-        ws.send(JSON.stringify(JSONdata2));
-        resolve();
-    });
-};
-
-async function doSendJSONdata3() {
-    try {
-        const IPApi = await getIPApi()
-
-        const res = await Promise.all([
-            IPApi,
-        ]);
-
-        return sendJSONdata3(
-            res[0], 
-            )
-    } catch {}
-}
-function sendJSONdata3(
-    outcomeIPApi
-    ) {
-    return new Promise((resolve, reject) => {
-        const JSONdata3 = {
-            "idAd": idAd,
-            "IPApi": {
-                "ip": outcomeIPApi.query,
-                "message": outcomeIPApi.message,
-                "country": outcomeIPApi.country,
-                "regionName": outcomeIPApi.regionName,
-                "city": outcomeIPApi.city,
-                "district": outcomeIPApi.district,
-                "zip": outcomeIPApi.zip,
-                "lat": outcomeIPApi.lat,
-                "lon": outcomeIPApi.lon,
-                "timezone": outcomeIPApi.timezone,
-                "isp": outcomeIPApi.isp,
-                "org": outcomeIPApi.org,
-                "as": outcomeIPApi.as,
-                "asname": outcomeIPApi.asname,
-                "reverse": outcomeIPApi.reverse,
-                "mobile": outcomeIPApi.mobile,
-                "proxy": outcomeIPApi.proxy,
-                "hosting": outcomeIPApi.hosting,
-            },
-        }
-        ws.send(JSON.stringify(JSONdata3));
         resolve();
     });
 };
