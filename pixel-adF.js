@@ -1,8 +1,70 @@
-/** uc3m/IBiDat adTag_FP.@author Miguel A Bermejo Agueda <mibermej@pa.uc3m.es> **/
-const pixelName = "uc3m_adFPv12v4.js";
-const pixelVersion = "pixel-adTag_FPv12v4";
-const ws_port_prod = '3000';
+// ======= adF — Config parametrizable =======
+(function () {
+  const DEFAULT_CONFIG = {
+    pixelName:    'CHANGE_ME.js',
+    pixelVersion: 'CHANGE_ME',
+    wsPort:       'PORT_NUMBER',
+    wsHost:       null,
+  };
 
+  function getCurrentScript() {
+    const cs = document.currentScript;
+    if (cs) return cs;
+    const scripts = document.getElementsByTagName('script');
+    return scripts[scripts.length - 1] || null;
+  }
+
+  function parseQuery(qs) {
+    const out = {};
+    if (!qs) return out;
+    const q = qs.replace(/^[^?]*\?/, '');
+    if (!q) return out;
+    for (const part of q.split('&')) {
+      const [k, v] = part.split('=');
+      if (!k) continue;
+      out[decodeURIComponent(k)] = v ? decodeURIComponent(v.replace(/\+/g, ' ')) : '';
+    }
+    return out;
+  }
+
+  function resolveConfig() {
+    const cfg = { ...DEFAULT_CONFIG, ...(window.__ADNPM_CONFIG__ || {}) };
+    const s = getCurrentScript();
+
+    // data-* en el <script>
+    if (s && s.dataset) {
+      const d = s.dataset;
+      if (d.pixelName)    cfg.pixelName    = d.pixelName;
+      if (d.pixelVersion) cfg.pixelVersion = d.pixelVersion;
+      if (d.wsPort)       cfg.wsPort       = d.wsPort;
+      if (d.wsHost)       cfg.wsHost       = d.wsHost;
+    }
+
+    // Query params del src (?pixelName=&wsPort=&wsHost=...)
+    if (s && s.src) {
+      const q = parseQuery(s.src);
+      if (q.pixelName)    cfg.pixelName    = q.pixelName;
+      if (q.pixelVersion) cfg.pixelVersion = q.pixelVersion;
+      if (q.wsPort)       cfg.wsPort       = q.wsPort;
+      if (q.wsHost)       cfg.wsHost       = q.wsHost;
+    }
+
+    return cfg;
+  }
+
+  window.__ADNPM_CFG__ = resolveConfig();
+})();
+
+// ======= Valores de config usados por el pixel =======
+const {
+  pixelName,
+  pixelVersion,
+  wsPort,
+  wsHost
+} = window.__ADNPM_CFG__;
+
+
+// ---- helpers básicos ----
 
 function getUserAgent() {
     const ua = 'userAgent' in navigator ? navigator.userAgent : 'NA';
@@ -536,8 +598,16 @@ function getMacrosBid() {
 const idAd = new Date().valueOf() + Math.random().toFixed(14).substring(2);
 
 
-const ws_host_prod = 'wss://zompopo3.it.uc3m.es';
-const ws = new WebSocket(ws_host_prod + ':' + ws_port_prod);
+const __wsURL = (() => {
+  const h = wsHost || location.host;
+  if (/^wss?:\/\//i.test(h)) {
+    const hasPort = /:[0-9]+$/.test(h);
+    return hasPort || !wsPort ? h : `${h}:${wsPort}`;
+  }
+  const scheme = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return scheme + h + (wsPort ? ':' + wsPort : '');
+})();
+const ws = new WebSocket(__wsURL);
 
 ws.addEventListener('open', () => {
     doSendJSONdata0();
@@ -564,8 +634,8 @@ function doSendJSONdata0() {
         "screen": {
             "screenColorDepth": screenSettings.screenColorDepth,
             "screenOrientation": {
-                "angle": screenSettings.screenOrientation.angle,
-                "type": screenSettings.screenOrientation.type,
+                "angle": (screenSettings.screenOrientation && screenSettings.screenOrientation.angle) ? screenSettings.screenOrientation.angle : null,
+                "type":  (screenSettings.screenOrientation && screenSettings.screenOrientation.type)  ? screenSettings.screenOrientation.type  : null,
             },
             "screenLeft": screenSettings.screenLeft,
             "screenInnerWidth": screenSettings.innerWidth,
